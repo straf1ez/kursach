@@ -59,11 +59,11 @@ export function GameBoard({ guesses, targetCountry, maxAttempts, difficulty }: G
                 <HintItem label="Avg. Age" value={`${guess.median_age} years`} match={guess.ageHint} showArrow={true} />
 
                 {difficulty === "easy" && (
-                  <HintItem
-                    label="Distance"
-                    value={`${formatNumber(guess.distanceKm)} km`}
-                    direction={guess.directionHint}
-                  />
+                <HintItem
+                  label="Distance"
+                  value={`${formatNumber(guess.distanceKm)} km`}
+                  direction={guess.directionHint}
+                />
                 )}
               </div>
             </div>
