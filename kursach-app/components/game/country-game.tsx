@@ -53,7 +53,6 @@ export function CountryGame() {
     if (!countries.length) return
     const randomIndex = Math.floor(Math.random() * countries.length)
     setTargetCountry(countries[randomIndex])
-    console.log('Загаданная страна:', countries[randomIndex])
     setStartTime(Date.now())
     setGuesses([])
     setGameState("playing")
