@@ -9,19 +9,15 @@ import { getCountriesData, Country } from "@/data/game/countries"
 interface CountrySearchProps {
   onSelectCountry: (country: Country) => void
   disabledCountries: string[]
+  countries: Country[]
 }
 
-export function CountrySearch({ onSelectCountry, disabledCountries }: CountrySearchProps) {
+export function CountrySearch({ onSelectCountry, disabledCountries, countries }: CountrySearchProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredCountries, setFilteredCountries] = useState<Country[]>([])
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [countries, setCountries] = useState<Country[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    getCountriesData().then(setCountries)
-  }, [])
 
   // Filter countries based on search term
   useEffect(() => {
