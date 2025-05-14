@@ -27,13 +27,13 @@ export function CountryGame() {
   const toastTimeout = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    getCountriesData().then((data) => {
+    setLoading(true)
+    getCountriesData(difficulty).then((data) => {
       setCountries(data)
       setLoading(false)
     })
-  }, [])
+  }, [difficulty])
 
-  // Set max attempts based on difficulty
   useEffect(() => {
     switch (difficulty) {
       case "easy":
@@ -48,24 +48,20 @@ export function CountryGame() {
     }
   }, [difficulty])
 
-  // Select a random country when game starts
-  const startGame = () => {
-    if (!countries.length) return
-    const randomIndex = Math.floor(Math.random() * countries.length)
-    setTargetCountry(countries[randomIndex])
-    setStartTime(Date.now())
-    setGuesses([])
-    setGameState("playing")
-  }
+  // const startGame = () => {
+  //   if (!countries.length) return
+  //   const randomIndex = Math.floor(Math.random() * countries.length)
+  //   setTargetCountry(countries[randomIndex])
+  //   setStartTime(Date.now())
+  //   setGuesses([])
+  //   setGameState("playing")
+  // }
 
-  // Handle country guess
   const handleGuess = (country: any) => {
-    // Check if country already guessed
     if (guesses.some((guess) => guess.country === country.country)) {
       return
     }
 
-    // Add comparison data to the guess
     const enrichedGuess = {
       ...country,
       isCorrect: country.country === targetCountry.country,
@@ -91,7 +87,6 @@ export function CountryGame() {
     const newGuesses = [enrichedGuess, ...guesses]
     setGuesses(newGuesses)
 
-    // Check win/lose conditions
     if (country.country === targetCountry.country) {
       setGameState("won")
     } else if (newGuesses.length >= maxAttempts) {
@@ -99,23 +94,33 @@ export function CountryGame() {
     }
   }
 
-  // Reset the game
   const resetGame = () => {
     setShowDifficultySelector(true)
   }
 
-  // Start a new game with selected difficulty
   const startNewGame = (selectedDifficulty: Difficulty) => {
     setDifficulty(selectedDifficulty)
     setShowDifficultySelector(false)
-    setStartTime(Date.now())
-    startGame()
+    setLoading(true)
+    getCountriesData(selectedDifficulty).then((data) => {
+      setCountries(data)
+      setLoading(false)
+      if (data.length > 0) {
+        const randomIndex = Math.floor(Math.random() * data.length)
+        setTargetCountry(data[randomIndex])
+        setStartTime(Date.now())
+        setGuesses([])
+        setGameState("playing")
+      } else {
+        setTargetCountry(null)
+      }
+    })
   }
 
-  // Start the initial game
   const startInitialGame = () => {
     setShowDifficultySelector(true)
-    setGameState("playing")
+    setGuesses([])
+    setTargetCountry(null)
   }
 
   useEffect(() => {
@@ -134,7 +139,6 @@ export function CountryGame() {
           finished_at: new Date().toISOString(),
         })
 
-        // --- ACHIEVEMENTS LOGIC ---
         const { data: userAchievementsRaw } = await supabase
           .from("user_achievements")
           .select("achievement_code")
@@ -142,7 +146,6 @@ export function CountryGame() {
         const userAchievements = userAchievementsRaw?.map(a => a.achievement_code) ?? []
         const newUnlocked: string[] = []
 
-        // 1. First Win
         if (gameState === "won" && !userAchievements.includes("first_win")) {
           await supabase.from("user_achievements").insert({
             user_id: user.id,
@@ -150,7 +153,6 @@ export function CountryGame() {
           })
           newUnlocked.push("first_win")
         }
-        // 2. Streak Master (5 побед подряд)
         const { data: lastGames } = await supabase
           .from("games")
           .select("result")
@@ -169,7 +171,6 @@ export function CountryGame() {
           })
           newUnlocked.push("streak_master")
         }
-        // 3. Speed Demon (победа < 2 мин)
         if (
           gameState === "won" &&
           startTime &&
@@ -185,7 +186,6 @@ export function CountryGame() {
             newUnlocked.push("speed_demon")
           }
         }
-        // 4. Sharpshooter (победа <= 3 попытки)
         if (
           gameState === "won" &&
           guesses.length <= 3 &&
@@ -197,7 +197,6 @@ export function CountryGame() {
           })
           newUnlocked.push("sharpshooter")
         }
-        // 5. Globe Trotter (сыграть 20 игр)
         const { count: gamesCount } = await supabase
           .from("games")
           .select("id", { count: "exact", head: true })
@@ -213,12 +212,9 @@ export function CountryGame() {
           })
           newUnlocked.push("globe_trotter")
         }
-        // --- END ACHIEVEMENTS LOGIC ---
 
-        // Показываем toast и звук, если есть новые ачивки
         if (newUnlocked.length > 0) {
           setUnlockedAchievements(newUnlocked)
-          // Звук (только один раз)
           const audio = new Audio("/Voicy_Que Miras Bobo.mp3")
           audio.play().catch(() => {})
           if (toastTimeout.current) clearTimeout(toastTimeout.current)
@@ -248,7 +244,9 @@ export function CountryGame() {
           </ul>
         </div>
       )}
-      {gameState === "welcome" ? (
+      {showDifficultySelector ? (
+        <DifficultySelector currentDifficulty={difficulty} onSelect={startNewGame} />
+      ) : gameState === "welcome" ? (
         <WelcomeScreen onStart={startInitialGame} />
       ) : (
         <>
@@ -259,11 +257,9 @@ export function CountryGame() {
             onReset={resetGame}
           />
 
-          {showDifficultySelector ? (
-            <DifficultySelector currentDifficulty={difficulty} onSelect={startNewGame} />
-          ) : gameState === "playing" ? (
+          {gameState === "playing" ? (
             <>
-              <CountrySearch onSelectCountry={handleGuess} disabledCountries={guesses.map((g) => g.country)} />
+              <CountrySearch onSelectCountry={handleGuess} disabledCountries={guesses.map((g) => g.country)} countries={countries} />
               <GameBoard guesses={guesses} targetCountry={targetCountry} maxAttempts={maxAttempts} difficulty={difficulty} />
             </>
           ) : (
@@ -280,7 +276,6 @@ export function CountryGame() {
   )
 }
 
-// Helper functions
 function getHemisphereMatch(country1: any, country2: any) {
   const northSouth = country1.latitude > 0 === country2.latitude > 0 ? "match" : "different"
   const eastWest = country1.longitude > 0 === country2.longitude > 0 ? "match" : "different"
@@ -296,23 +291,44 @@ function getComparisonHint(value1: number, value2: number) {
 }
 
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371 // Earth's radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLon = ((lon2 - lon1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return Math.round(R * c)
+  const R = 6371
+  const toRad = (deg: number) => deg * Math.PI / 180
+
+  const φ1 = toRad(lat1)
+  const φ2 = toRad(lat2)
+  const Δλ = toRad(lon2 - lon1)
+
+  const x = Math.cos(φ2) * Math.sin(Δλ)
+  const y = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  const numerator = Math.sqrt(x * x + y * y)
+  const denominator = Math.sin(φ1) * Math.sin(φ2) + Math.cos(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  const σ = Math.atan2(numerator, denominator)
+  return Math.round(R * σ)
 }
 
 function getDirectionHint(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const ns = lat2 > lat1 ? "N" : "S"
-  const ew = lon2 > lon1 ? "E" : "W"
-  return ns + ew
+  const toRad = (deg: number) => deg * Math.PI / 180
+  const toDeg = (rad: number) => rad * 180 / Math.PI
+
+  const φ1 = toRad(lat1)
+  const φ2 = toRad(lat2)
+  const Δλ = toRad(lon2 - lon1)
+
+  const y = Math.sin(Δλ) * Math.cos(φ2)
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  let θ = Math.atan2(y, x)
+  θ = (toDeg(θ) + 360) % 360
+
+  if (θ >= 337.5 || θ < 22.5) return "N"
+  if (θ >= 22.5 && θ < 67.5) return "NE"
+  if (θ >= 67.5 && θ < 112.5) return "E"
+  if (θ >= 112.5 && θ < 157.5) return "SE"
+  if (θ >= 157.5 && θ < 202.5) return "S"
+  if (θ >= 202.5 && θ < 247.5) return "SW"
+  if (θ >= 247.5 && θ < 292.5) return "W"
+  if (θ >= 292.5 && θ < 337.5) return "NW"
 }
 
-// Вспомогательная функция для отображения названия ачивки
 function achievementName(code: string): string {
   switch (code) {
     case "first_win": return "Первая победа"

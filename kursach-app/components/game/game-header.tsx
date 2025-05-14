@@ -12,9 +12,9 @@ interface GameHeaderProps {
 }
 
 const difficultyLabel: Record<string, string> = {
-  easy: "Лёгкая",
-  medium: "Средняя",
-  hard: "Сложная",
+  easy: "Лёгкий",
+  medium: "Средний",
+  hard: "Сложный",
 }
 
 export function GameHeader({ difficulty, attemptsRemaining, totalAttempts, onReset }: GameHeaderProps) {
